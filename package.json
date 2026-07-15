@@ -1,0 +1,12 @@
+{
+  "name": "editor-kdp-amazon",
+  "version": "1.0.0",
+  "description": "Editor interactivo para libros KDP de Amazon 8x10 a 300 DPI con exportación en PDF de imprenta",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creador de Libros KDP - 8x10" con Exportación PDF 300 DPI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e24;
+            color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #ff9900; /* Color distintivo KDP */
+            margin-bottom: 5px;
+            font-weight: 800;
+        }
+
+        p {
+            color: #ccc;
+            margin-top: 0;
+            font-size: 14px;
+            max-width: 800px;
+            text-align: center;
+        }
+
+        /* Panel de control */
+        .controls {
+            background: #2d2d35;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            border: 1px solid #444;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: bold;
+            color: #aaa;
+        }
+
+        button, input[type="file"], select {
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 1px solid #555;
+            background-color: #3a3a45;
+            color: white;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+
+        button:hover {
+            background-color: #505060;
+        }
+
+        /* Botón de exportación especial */
+        .btn-pdf {
+            background-color: #ff9900;
+            color: #111;
+            font-weight: bold;
+            border: none;
+        }
+
+        .btn-pdf:hover {
+            background-color: #e68a00;
+            color: #000;
+            box-shadow: 0 0 8px rgba(255, 153, 0, 0.5);
+        }
+
+        .btn-pdf:disabled {
+            background-color: #666;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        /* Contenedor del lienzo con scroll */
+        .canvas-container {
+            width: 100%;
+            max-width: 1000px;
+            height: 650px;
+            overflow: auto;
+            border: 3px solid #444;
+            background: #111;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        /* Lienzo de Página real a 300 DPI (2438 x 3075 px) */
+        .page {
+            width: 2438px;
+            height: 3075px;
+            background: white;
+            color: black;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            transform: scale(0.2); /* Escalado al 20% para edición cómoda en pantalla */
+            transform-origin: top left;
+            margin: 10px;
+        }
+
+        /* Línea de guía para la Sangría (0.125 pulgadas = 38px en 300 DPI) */
+        .bleed-guide {
+            position: absolute;
+            top: 38px;
+            left: 38px;
+            right: 38px;
+            bottom: 38px;
+            border: 4px dashed rgba(255, 0, 0, 0.6);
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        .bleed-label {
+            position: absolute;
+            top: -35px;
+            left: 10px;
+            color: red;
+            font-size: 28px;
+            font-weight: bold;
+            font-family: sans-serif;
+            background-color: rgba(255,255,255,0.9);
+            padding: 2px 10px;
+            border-radius: 4px;
+        }
+
+        /* Elementos editables dentro de la página */
+        .editable-element {
+            position: absolute;
+            cursor: move;
+            user-select: none;
+        }
+
+        .text-element {
+            font-size: 80px;
+            padding: 10px;
+            border: 3px transparent dashed;
+            outline: none;
+            min-width: 200px;
+        }
+
+        .text-element:focus {
+            border-color: #ff9900;
+            background-color: rgba(255, 153, 0, 0.05);
+        }
+
+        .image-element {
+            max-width: 100%;
+            display: block;
+        }
+
+        .image-wrapper {
+            border: 3px transparent dashed;
+        }
+
+        .image-wrapper:hover {
+            border-color: #28a745;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Editor KDP Profesional (8" x 10" — 300 DPI)</h1>
+    <p>
+        Medidas con Sangría: <b>8.125" x 10.25"</b> (2438 x 3075 píxeles reales). La línea discontinua roja marca la zona de corte seguro de Amazon KDP.<br>
+        El botón de exportación genera un PDF de imprenta exacto sin perder resolución.
+    </p>
+
+    <div class="controls">
+        <label for="font-select">Fuente Google:</label>
+        <select id="font-select" onchange="changeFont(this.value)">
+            <option value="'Sniglet', cursive">Sniglet</option>
+            <option value="Arial, sans-serif">Arial</option>
+            <option value="'Times New Roman', serif">Times New Roman</option>
+        </select>
+
+        <button onclick="addText()">+ Añadir Texto</button>
+        
+        <label for="image-loader">Añadir Imagen:</label>
+        <input type="file" id="image-loader" accept="image/*" onchange="handleImage(event)">
+
+        <button id="pdf-btn" class="btn-pdf" onclick="exportToPDF()">⬇️ Descargar PDF (300 DPI)</button>
+    </div>
+
+    <div class="canvas-container">
+        <div class="page" id="book-page">
+            <div class="bleed-guide">
+                <span class="bleed-label">Límite de Corte (Sangría Exterior)</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const page = document.getElementById('book-page');
+
+        function addText() {
+            const text = document.createElement('div');
+            text.className = 'editable-element text-element';
+            text.contentEditable = true;
+            text.innerText = 'Haz doble clic para editar';
+            text.style.fontFamily = document.getElementById('font-select').value;
+            text.style.left = '150px';
+            text.style.top = '150px';
+
+            makeDraggable(text);
+            page.appendChild(text);
+            text.focus();
+        }
+
+        function changeFont(fontName) {
+            const selection = window.getSelection();
+            if (selection.anchorNode) {
+                let parent = selection.anchorNode.parentElement;
+                if (parent.classList.contains('text-element')) {
+                    parent.style.fontFamily = fontName;
+                }
+            }
+        }
+
+        function handleImage(e) {
+            if (!e.target.files.length) return;
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    const widthInches = img.width / 300;
+                    const heightInches = img.height / 300;
+                    
+                    let message = `Imagen cargada: ${img.width}x${img.height} px.\n`;
+                    message += `A 300 DPI óptimos se imprimirá a: ${widthInches.toFixed(2)}" x ${heightInches.toFixed(2)}".\n\n`;
+
+                    if (img.width < 1500 || img.height < 1500) {
+                        message += "⚠️ ADVERTENCIA: La resolución de esta imagen es baja para impresión física a 300 DPI.";
+                    } else {
+                        message += "✓ Calidad Excelente para Amazon KDP (300 DPI o más).";
+                    }
+                    alert(message);
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'editable-element image-wrapper';
+                    wrapper.style.left = '200px';
+                    wrapper.style.top = '250px';
+                    wrapper.style.width = '800px';
+
+                    img.className = 'image-element';
+                    wrapper.appendChild(img);
+                    makeDraggable(wrapper);
+                    page.appendChild(wrapper);
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
+
+        async function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const btn = document.getElementById('pdf-btn');
+            const originalText = btn.innerText;
+            
+            btn.innerText = "Procesando PDF (300 DPI)...";
+            btn.disabled = true;
+
+            const originalTransform = page.style.transform;
+            const guide = document.querySelector('.bleed-guide');
+            const label = document.querySelector('.bleed-label');
+
+            page.style.transform = 'none';
+            guide.style.borderColor = 'transparent';
+            label.style.display = 'none';
+
+            try {
+                const canvas = await html2canvas(page, {
+                    scale: 1, 
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false,
+                    width: 2438,
+                    height: 3075
+                });
+
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'in',
+                    format: [8.125, 10.25]
+                });
+
+                doc.addImage(imgData, 'JPEG', 0, 0, 8.125, 10.25, undefined, 'NONE');
+                doc.save('libro_amazon_kdp_8x10_300dpi.pdf');
+
+            } catch (error) {
+                console.error(error);
+                alert("Error al renderizar el PDF: " + error.message);
+            } finally {
+                page.style.transform = originalTransform;
+                guide.style.borderColor = 'rgba(255, 0, 0, 0.6)';
+                label.style.display = 'block';
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        function makeDraggable(element) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            element.onmousedown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                e = e || window.event;
+                if (document.activeElement === element && e.target !== element) return;
+                
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e = e || window.event;
+                e.preventDefault();
+                pos1 = (pos3 - e.clientX) * 5;
+                pos2 = (pos4 - e.clientY) * 5;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                element.style.top = (element.offsetTop - pos2) + "px";
+                element.style.left = (element.offsetLeft - pos1) + "px";
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+    </script>
+</body>
+</html>
